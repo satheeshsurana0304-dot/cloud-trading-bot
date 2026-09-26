@@ -1,17 +1,22 @@
 import time
+from pathlib import Path
+
 import ccxt
 
 from src.models import Candle
-from src.patterns import is_knot
+from src.patterns import is_knot, is_inverted_knot
 
 
 SYMBOL = "BTC/USDT"
 TIMEFRAME = "1m"
+
 TOTAL_CANDLES = 100_000
 BATCH_SIZE = 1000
 
+DATA_FILE = Path("data/BTC_USDT_1m_100000.csv")
 
-def fetch_large_dataset():
+
+def download_large_dataset():
     exchange = ccxt.binanceusdm()
 
     timeframe_ms = 60_000
@@ -39,16 +44,71 @@ def fetch_large_dataset():
 
         since = batch[-1][0] + timeframe_ms
 
-        print(
-            f"Downloaded: {len(candles)}/{TOTAL_CANDLES}"
-        )
+        print(f"Downloaded: {len(candles)}/{TOTAL_CANDLES}")
 
         time.sleep(0.1)
 
-    return candles[:TOTAL_CANDLES]
+    candles = candles[:TOTAL_CANDLES]
+
+    DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    with DATA_FILE.open("w", encoding="utf-8") as file:
+        file.write("timestamp,open,high,low,close,volume\n")
+
+        for candle in candles:
+            file.write(
+                f"{candle[0]},"
+                f"{candle[1]},"
+                f"{candle[2]},"
+                f"{candle[3]},"
+                f"{candle[4]},"
+                f"{candle[5]}\n"
+            )
+
+    print()
+    print(f"Saved dataset to: {DATA_FILE}")
+
+    return candles
 
 
-def scan_knot(raw_candles):
+def load_saved_dataset():
+    candles = []
+
+    with DATA_FILE.open("r", encoding="utf-8") as file:
+        next(file)  # Skip header
+
+        for line in file:
+            values = line.strip().split(",")
+
+            candles.append([
+                int(values[0]),
+                float(values[1]),
+                float(values[2]),
+                float(values[3]),
+                float(values[4]),
+                float(values[5]),
+            ])
+
+    return candles
+
+
+def get_dataset():
+    if DATA_FILE.exists():
+        print(f"Found saved dataset:")
+        print(DATA_FILE)
+        print("Loading local candles...")
+        print()
+
+        return load_saved_dataset()
+
+    print("Saved dataset not found.")
+    print("Downloading 100,000 candles from Binance...")
+    print()
+
+    return download_large_dataset()
+
+
+def scan_patterns(raw_candles):
     candles = [
         Candle(
             timestamp=row[0],
@@ -61,45 +121,66 @@ def scan_knot(raw_candles):
         for row in raw_candles
     ]
 
-    matches = []
+    knot_matches = []
+    inverted_knot_matches = []
 
     for i in range(len(candles) - 3):
         window = candles[i:i + 4]
 
         if is_knot(window):
-            matches.append((i, window))
+            knot_matches.append((i, window))
 
-    return matches
+        if is_inverted_knot(window):
+            inverted_knot_matches.append((i, window))
+
+    return knot_matches, inverted_knot_matches
 
 
 def main():
-    print("Downloading BTC/USDT 1-minute data...")
-    print(f"Target candles: {TOTAL_CANDLES:,}")
+    print("BTC/USDT 1-minute pattern scanner")
+    print("=" * 45)
     print()
 
-    raw_candles = fetch_large_dataset()
+    raw_candles = get_dataset()
+
+    print(f"Candles loaded: {len(raw_candles):,}")
 
     print()
-    print(f"Candles downloaded: {len(raw_candles):,}")
+    print("Scanning for KNOT and Inverted KNOT...")
+
+    knot_matches, inverted_knot_matches = scan_patterns(raw_candles)
 
     print()
-    print("Scanning for KNOT...")
+    print("=" * 45)
+    print(f"Candles scanned:       {len(raw_candles):,}")
+    print(f"KNOT occurrences:      {len(knot_matches):,}")
+    print(f"Inverted KNOT:         {len(inverted_knot_matches):,}")
+    print("=" * 45)
 
-    matches = scan_knot(raw_candles)
-
-    print()
-    print("=" * 40)
-    print(f"Candles scanned:   {len(raw_candles):,}")
-    print(f"KNOT occurrences:  {len(matches):,}")
-    print("=" * 40)
-
-    if matches:
+    if knot_matches:
         print()
         print("First 10 KNOT occurrences:")
 
-        for number, (index, window) in enumerate(matches[:10], start=1):
+        for number, (index, window) in enumerate(
+            knot_matches[:10],
+            start=1,
+        ):
             print(
                 f"KNOT #{number}: "
+                f"index={index}, "
+                f"timestamp={window[0].timestamp}"
+            )
+
+    if inverted_knot_matches:
+        print()
+        print("First 10 Inverted KNOT occurrences:")
+
+        for number, (index, window) in enumerate(
+            inverted_knot_matches[:10],
+            start=1,
+        ):
+            print(
+                f"Inverted KNOT #{number}: "
                 f"index={index}, "
                 f"timestamp={window[0].timestamp}"
             )
