@@ -18,12 +18,18 @@ def convert_candle(raw_candle):
     )
 
 
-def fetch_candles(symbol: str, timeframe: str = "1m", limit: int = 10):
+def fetch_candles(
+    symbol: str,
+    timeframe: str = "1m",
+    limit: int = 10,
+    since: int | None = None,
+):
     exchange = create_exchange()
 
     raw_candles = exchange.fetch_ohlcv(
         symbol=symbol,
         timeframe=timeframe,
+        since=since,
         limit=limit,
     )
 
