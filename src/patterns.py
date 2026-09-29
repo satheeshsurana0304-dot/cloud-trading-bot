@@ -2,6 +2,7 @@ from src.models import Candle
 
 
 STRONG_BODY_MIN = 0.65
+MOMENTUM_BODY_MIN = 0.80
 
 
 def _is_strong_bearish(candle: Candle) -> bool:
@@ -38,6 +39,17 @@ def _is_bullish(candle: Candle) -> bool:
 
 def _is_bearish(candle: Candle) -> bool:
     return candle.close < candle.open
+
+
+def _body_percentage(candle: Candle) -> float:
+    candle_range = candle.high - candle.low
+
+    if candle_range <= 0:
+        return 0.0
+
+    body = abs(candle.close - candle.open)
+
+    return body / candle_range
 
 
 def is_knot(candles: list[Candle]) -> bool:
@@ -124,6 +136,54 @@ def is_inverted_knot(candles: list[Candle]) -> bool:
     return True
 
 
+def is_three_candle_momentum(candles: list[Candle]) -> bool:
+    """
+    3-Candle Momentum pattern.
+
+    Three consecutive candles must:
+        1. Be the same direction.
+        2. Each have a body >= 80% of its total range.
+
+    Valid structures:
+
+        Bullish:
+            C1 bullish >= 80%
+            C2 bullish >= 80%
+            C3 bullish >= 80%
+
+        Bearish:
+            C1 bearish >= 80%
+            C2 bearish >= 80%
+            C3 bearish >= 80%
+    """
+
+    if len(candles) != 3:
+        return False
+
+    c1, c2, c3 = candles
+
+    if (
+        _body_percentage(c1) < MOMENTUM_BODY_MIN
+        or _body_percentage(c2) < MOMENTUM_BODY_MIN
+        or _body_percentage(c3) < MOMENTUM_BODY_MIN
+    ):
+        return False
+
+    bullish = (
+        _is_bullish(c1)
+        and _is_bullish(c2)
+        and _is_bullish(c3)
+    )
+
+    bearish = (
+        _is_bearish(c1)
+        and _is_bearish(c2)
+        and _is_bearish(c3)
+    )
+
+    return bullish or bearish
+
+
 # ============================================================
 # PATTERN LIBRARY
 # ============================================================
@@ -131,4 +191,5 @@ def is_inverted_knot(candles: list[Candle]) -> bool:
 PATTERN_LIBRARY = {
     "KNOT": is_knot,
     "INVERTED_KNOT": is_inverted_knot,
+    "THREE_CANDLE_MOMENTUM": is_three_candle_momentum,
 }

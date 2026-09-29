@@ -1,7 +1,11 @@
 import unittest
 
 from src.models import Candle
-from src.patterns import is_knot, is_inverted_knot
+from src.patterns import (
+    is_knot,
+    is_inverted_knot,
+    is_three_candle_momentum,
+)
 
 
 class TestKnot(unittest.TestCase):
@@ -54,6 +58,10 @@ class TestKnot(unittest.TestCase):
         ]
 
         self.assertFalse(is_knot(candles))
+
+
+class TestInvertedKnot(unittest.TestCase):
+
     def test_valid_inverted_knot(self):
         candles = [
             Candle(1, 100, 111, 99, 110, 500),
@@ -92,6 +100,54 @@ class TestKnot(unittest.TestCase):
         ]
 
         self.assertFalse(is_inverted_knot(candles))
+
+
+class TestThreeCandleMomentum(unittest.TestCase):
+
+    def test_valid_bullish_momentum(self):
+        candles = [
+            Candle(1, 100, 111, 99, 110, 500),
+            Candle(2, 110, 121, 109, 120, 600),
+            Candle(3, 120, 131, 119, 130, 700),
+        ]
+
+        self.assertTrue(is_three_candle_momentum(candles))
+
+    def test_valid_bearish_momentum(self):
+        candles = [
+            Candle(1, 110, 111, 99, 100, 500),
+            Candle(2, 100, 101, 89, 90, 600),
+            Candle(3, 90, 91, 79, 80, 700),
+        ]
+
+        self.assertTrue(is_three_candle_momentum(candles))
+
+    def test_wrong_number_of_candles(self):
+        candles = [
+            Candle(1, 100, 111, 99, 110, 500),
+            Candle(2, 110, 121, 109, 120, 600),
+        ]
+
+        self.assertFalse(is_three_candle_momentum(candles))
+
+    def test_mixed_direction(self):
+        candles = [
+            Candle(1, 100, 111, 99, 110, 500),
+            Candle(2, 110, 111, 99, 100, 600),
+            Candle(3, 100, 111, 99, 110, 700),
+        ]
+
+        self.assertFalse(is_three_candle_momentum(candles))
+
+    def test_weak_candle(self):
+        candles = [
+            Candle(1, 100, 111, 99, 110, 500),
+            Candle(2, 110, 125, 105, 120, 600),
+            Candle(3, 120, 131, 119, 130, 700),
+        ]
+
+        self.assertFalse(is_three_candle_momentum(candles))
+
 
 if __name__ == "__main__":
     unittest.main()
